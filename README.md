@@ -9,8 +9,11 @@
   </a>
 </p>
 
+> ### 🚧 **Development Status: Active & Evolving** 🚧
+> This project is under active development. The core scraping functionality is stable, but new features for data cleaning and transformation are being added and refined. User feedback is highly welcome!
+
 <p align="center">
-  A user-friendly web application built with Streamlit that allows you to extract tabular data from any webpage. This tool is designed to be "smart"—it automatically handles complex websites and can even clean and structure messy data with a single click.
+  A user-friendly web application built with Streamlit that allows you to extract tabular data from any webpage. This tool is designed to be "smart"—it automatically handles complex websites and now includes interactive tools to clean and restructure your data using the power of Regular Expressions.
 </p>
 
 <p align="center">
@@ -24,19 +27,24 @@
 
 ## 📖 Project Overview
 
-The goal of this project is to create a simple yet powerful tool that eliminates the tedious task of manually copying and pasting data from websites. A user can simply paste a URL, and the application intelligently fetches, parses, and displays all the data tables from that page.
+The goal of this project is to create a simple yet powerful tool that eliminates the tedious task of manually copying and pasting data from websites. A user can simply paste a URL, and the application intelligently fetches, parses, and displays all the raw data tables from that page.
 
-It's built to handle both simple static websites and modern, dynamic sites that load their content using JavaScript. It also includes specialized cleaning routines to handle common cases where data is poorly structured within a single table cell (e.g., book listings on Goodreads).
+The real power comes from the post-scraping toolkit. It's built to handle both simple static websites and modern, dynamic sites that load their content using JavaScript. Crucially, it includes an **interactive RegEx Extractor** that lets the user extract and separate multiple pieces of information from a single messy column into a new, perfectly structured table.
 
 ## ✨ Key Features
 
-*   **Handles Google Search & Direct URLs**: Accepts both direct website URLs and links copied from a Google search results page.
+*   **Handles All Link Types**: Accepts both direct website URLs and links copied from a Google search results page.
 *   **Smart Automated Fallback Scraping**:
     1.  First, it attempts a fast scrape using `requests` and `pandas`.
-    2.  If that fails or finds no tables, it **automatically** switches to a powerful advanced scraper using `Selenium` to fully render the page, including JavaScript.
-*   **Specialized Post-Scrape Data Cleaning**: Includes an optional one-click cleaning function to parse and structure messy data from sites like Goodreads, turning a single cell of text into multiple, organized columns (Title, Author, Rating, etc.).
+    2.  If that fails, it **automatically** switches to a powerful `Selenium` scraper to fully render the page, including JavaScript.
+*   **Interactive RegEx Extractor**: The core cleaning feature allows you to:
+    *   Select any raw table and any column containing messy data.
+    *   Write a **Regular Expression (RegEx)** to define extraction patterns.
+    *   Use **named capture groups** `(?P<Name>...)` to automatically create and name new columns.
+    *   Instantly see the cleaned "after" table for review and download.
+*   **Clear Before-and-After View**: The app keeps the raw extracted tables visible for comparison while showing the newly cleaned table in a separate section.
 *   **Clean, Interactive UI**: Built with Streamlit for a responsive and easy-to-use interface.
-*   **One-Click CSV Download**: Download any extracted table as a clean `.csv` file with the click of a button.
+*   **One-Click CSV Download**: Download both the original raw tables and your final cleaned table as `.csv` files.
 
 ## 🚀 Live Demo & Video Walkthrough
 
@@ -47,37 +55,30 @@ It's built to handle both simple static websites and modern, dynamic sites that 
 
 The application follows a logical pipeline to get you the data you need.
 
-1.  **URL Input & Cleaning**: The user provides a URL. The application first checks if it's a `google.com` redirect link and, if so, extracts the true destination URL.
+1.  **URL Input & Scraping**: A user provides a URL. The app automatically detects the link type and uses its two-stage (standard then advanced) scraping mechanism to fetch all tables from the page.
 
-2.  **Attempt 1: Standard Scraping**:
-    *   The app sends an HTTP GET request to the URL using the `requests` library. This is very fast.
-    *   It then uses `pandas.read_html()` to parse the raw HTML and find all `<table>` elements.
-    *   **If tables are found**, the process moves straight to the display step.
+2.  **Display Raw Results**: All tables found on the page are immediately displayed in collapsible sections, showing the data exactly as it appeared on the website.
 
-3.  **Attempt 2: Advanced Scraping (Automated Fallback)**:
-    *   **If the standard scraper finds no tables**, the app assumes the content is loaded dynamically with JavaScript.
-    *   It launches a headless Google Chrome browser in the background using `Selenium` and `webdriver-manager`.
-    *   It navigates to the URL and intelligently waits for `<table>` elements to become visible on the page.
-    *   Once the page is fully rendered, it passes the page source to `pandas.read_html()`.
+3.  **Interactive Cleaning with RegEx**:
+    *   The user selects a raw table and a specific column they wish to clean.
+    *   They provide a RegEx pattern in the text area. This pattern defines what data to "pull out." For example, to get a book title and author, the pattern would describe how to find the text for the title and how to find the text for the author.
+    *   Using **named capture groups** (e.g., `(?P<Title>...)` and `(?P<Author>...)`) in the RegEx tells the app to create new columns named `Title` and `Author`.
 
-4.  **Optional Post-Processing (Data Cleaning)**:
-    *   If the user has ticked the "Apply book data cleaning" checkbox, the app applies a specific cleaning function to the extracted tables.
-    *   This function uses **Regular Expressions (RegEx)** to find and extract patterns (like title, author, ratings) from a messy text cell and splits them into separate, clean columns.
+4.  **Display Cleaned Result**:
+    *   Upon applying the extraction, a new "Cleaned Table Result" appears.
+    *   This new table contains the original columns (minus the messy one) plus the new, cleanly extracted columns. The raw table remains unchanged for comparison.
 
-5.  **Display and Download**:
-    *   The final, clean DataFrames are displayed in the Streamlit interface using `st.dataframe()`.
-    *   Each table is presented within a collapsible `st.expander` to keep the UI tidy.
-    *   A download button is provided for each table, allowing the user to save the data as a CSV file.
+5.  **Download**: The user can download either the original raw tables or the final, structured table as CSV files.
 
 ## 🛠️ Technology Stack
 
 *   **Framework**: [Streamlit](https://streamlit.io/)
 *   **Data Manipulation**: [Pandas](https://pandas.pydata.org/)
+*   **Regular Expressions**: Python's built-in `re` module
 *   **Standard Scraping**: [Requests](https://requests.readthedocs.io/en/latest/)
 *   **Advanced Scraping**: [Selenium](https://www.selenium.dev/)
 *   **Driver Management**: [webdriver-manager](https://github.com/SergeyPirogov/webdriver_manager)
 *   **HTML Parsing**: [BeautifulSoup4](https://www.crummy.com/software/BeautifulSoup/bs4/doc/) & [lxml](https://lxml.de/)
-*   **Excel Writing Engine**: [XlsxWriter](https://xlsxwriter.readthedocs.io/)
 
 ## 🚀 Setup and Installation
 
@@ -85,7 +86,7 @@ Follow these steps to run the project on your local machine.
 
 #### Prerequisites
 *   Python 3.8 - 3.11
-*   Google Chrome browser installed (for the advanced Selenium scraper)
+*   Google Chrome browser installed (required for the advanced Selenium scraper)
 
 #### Installation Steps
 
@@ -119,10 +120,13 @@ Follow these steps to run the project on your local machine.
 
 ## 🧑‍💻 How to Use the App
 
-1.  **Paste a URL** into the input box. This can be a direct link or a link copied from a Google search.
-2.  **(Optional) Apply Cleaning:** If you are scraping a book list from a site like **Goodreads** where the title, author, and rating are all in one cell, tick the **"Apply book data cleaning"** checkbox.
-3.  **View Results:** The application will automatically perform the scraping. The found tables will appear in collapsible sections.
-4.  **Download Data:** Click the "Download as CSV" button under any table to save it to your computer.
+1.  **Paste a URL** into the input box and click "Extract Tables."
+2.  **Inspect the Raw Tables** that appear below. Identify a table and a specific column that needs cleaning.
+3.  **Go to the "Interactive Data Cleaning" tool.**
+    *   Select the raw table and the messy column from the dropdown menus.
+    *   Write a RegEx pattern in the text area to define what data to extract. Use `(?P<ColumnName>...)` to create new, named columns. An example for Goodreads is provided by default.
+4.  **Click "Apply Extraction."**
+5.  **View and Download:** A new "Cleaned Table Result" will appear. You can view it and download it as a clean CSV file.
 
 ## 📜 License
 

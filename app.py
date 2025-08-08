@@ -1,11 +1,9 @@
 import streamlit as st
-import requests
 import pandas as pd
 from urllib.parse import urlparse, parse_qs
-import io
+import requests
 import re # Import the regular expressions library
 
-# --- Selenium Imports for Advanced Scraping ---
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -14,7 +12,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
-# --- Helper Functions (URL and Scraping logic is unchanged) ---
+# --- Core Helper & Scraping Functions (Unchanged) ---
 def get_actual_url(google_link):
     if "google.com" not in urlparse(google_link).netloc: return google_link
     try: return parse_qs(urlparse(google_link).query).get('q', [None])[0]
@@ -30,8 +28,7 @@ def scrape_tables_standard(url):
 
 def scrape_tables_advanced(url):
     try:
-        options = Options()
-        options.add_argument("--headless"); options.add_argument("--no-sandbox")
+        options = Options(); options.add_argument("--headless"); options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage"); options.add_argument("--window-size=1920,1080")
         service = Service(ChromeDriverManager().install())
         with webdriver.Chrome(service=service, options=options) as driver:
@@ -40,100 +37,124 @@ def scrape_tables_advanced(url):
             html = driver.page_source
         return pd.read_html(html)
     except Exception as e:
-        st.error(f"Advanced scraper failed. Error: {e}")
-        return []
-
-# --- NEW: Data Cleaning Function for Book Data ---
-def clean_book_data(df):
-    """
-    Specifically processes a DataFrame from a site like Goodreads.
-    It splits the combined 'Title/Author/Rating' column into multiple clean columns.
-    """
-    # Check if the dataframe has a column that contains the combined book data
-    # We assume it's the second column (index 1) for Goodreads lists.
-    if len(df.columns) < 2:
-        return df # Not the format we expect, return as is
-
-    target_col_name = df.columns[1]
-    
-    # Use regular expressions to extract each piece of data.
-    # We wrap this in a function to apply to each row.
-    def parse_book_cell(cell_text):
-        if not isinstance(cell_text, str):
-            return {} # Return empty dict if cell is not text
-
-        title = re.search(r'^(.*?)\s*\(', cell_text)
-        author = re.search(r'by\s(.*?)\s*(\d+\.\d+ avg rating)', cell_text)
-        avg_rating = re.search(r'(\d+\.\d+)\s*avg rating', cell_text)
-        total_ratings = re.search(r'—\s*([\d,]+)\s*ratings', cell_text)
-        score = re.search(r'score:\s*([\d,]+)', cell_text)
-        voters = re.search(r'and\s*([\d,]+)\s*people voted', cell_text)
-        
-        # Build a dictionary of the extracted data, cleaning it up
-        data = {
-            'Title': title.group(1).strip() if title else None,
-            'Author': author.group(1).strip() if author else None,
-            'Avg Rating': float(avg_rating.group(1)) if avg_rating else None,
-            'Total Ratings': int(total_ratings.group(1).replace(',', '')) if total_ratings else None,
-            'Score': int(score.group(1).replace(',', '')) if score else None,
-            'Voters': int(voters.group(1).replace(',', '')) if voters else None,
-        }
-        return data
-
-    # Apply the parsing function to the target column and create a new DataFrame from the results
-    parsed_data = df[target_col_name].apply(parse_book_cell).apply(pd.Series)
-    
-    # Combine the new parsed data with the original DataFrame (dropping the old messy column)
-    cleaned_df = pd.concat([df.drop(columns=[target_col_name]), parsed_data], axis=1)
-    
-    return cleaned_df
-
+        st.error(f"Advanced scraper failed. Error: {e}"); return []
 
 # --- Streamlit App Interface ---
 st.set_page_config(page_title="Smart Web Table Extractor", layout="wide")
-
 st.title("🧠 Smart Web Table Extractor")
-st.write("Paste a URL to automatically find and extract tables. For sites like Goodreads, use the cleaning option to structure the data.")
+st.write("Paste a URL to extract tables, then use the advanced RegEx tool to clean and structure your data.")
 
-# --- Inputs ---
-url_input = st.text_input("Enter URL here:", placeholder="Try a list from Goodreads.com")
+# Initialize session state for storing original and cleaned tables
+if 'extracted_tables' not in st.session_state:
+    st.session_state.extracted_tables = []
+if 'cleaned_table' not in st.session_state:
+    st.session_state.cleaned_table = None
 
-# --- NEW: Optional cleaning checkbox ---
-apply_cleaning = st.checkbox("Apply book data cleaning (for sites like Goodreads)")
+url_input = st.text_input("Enter URL here:", placeholder="https://www.goodreads.com/list/show/1.Best_Books_Ever")
 
-if url_input:
+if st.button("Extract Tables"):
+    # Clear all previous results before starting a new extraction
+    st.session_state.extracted_tables = []
+    st.session_state.cleaned_table = None
     actual_url = get_actual_url(url_input)
     if not actual_url:
         st.error("Invalid URL.")
     else:
         st.info(f"Identified destination URL: `{actual_url}`")
         with st.spinner("Step 1/2: Trying fast standard scraper..."):
-            extracted_tables = scrape_tables_standard(actual_url)
-
-        if not extracted_tables:
+            tables = scrape_tables_standard(actual_url)
+        if not tables:
             st.warning("Standard scraper found no tables. Switching to advanced scraper...")
             with st.spinner("Step 2/2: Using advanced scraper..."):
-                extracted_tables = scrape_tables_advanced(actual_url)
+                tables = scrape_tables_advanced(actual_url)
         
-        if extracted_tables:
-            st.success(f"🎉 Found {len(extracted_tables)} table(s) on the page!")
-            
-            # --- Processing and Display Logic ---
-            final_tables = []
-            for df in extracted_tables:
-                # If checkbox is ticked, try to clean the dataframe
-                if apply_cleaning:
-                    final_tables.append(clean_book_data(df))
-                else:
-                    final_tables.append(df)
-
-            for i, table_df in enumerate(final_tables):
-                with st.expander(f"Table {i+1} (Rows: {len(table_df)}) - Click to view/download"):
-                    st.dataframe(table_df)
-                    # --- SIMPLIFIED: Only CSV download button ---
-                    st.download_button(
-                        "📥 Download as CSV", table_df.to_csv(index=False).encode('utf-8'),
-                        f'table_{i+1}.csv', 'text/csv', key=f'csv_{i}'
-                    )
-        else:
+        st.session_state.extracted_tables = tables
+        if not tables:
             st.error("Extraction failed. No tables were found.")
+        else:
+            st.success(f"🎉 Success! Found {len(st.session_state.extracted_tables)} raw table(s).")
+
+
+# --- DISPLAY ORIGINAL TABLES ---
+if st.session_state.extracted_tables:
+    st.markdown("---")
+    st.header("Raw Extracted Tables")
+    st.write("These are the tables exactly as they were found on the webpage.")
+    for i, table_df in enumerate(st.session_state.extracted_tables):
+        with st.expander(f"Raw Table {i+1} (Rows: {len(table_df)})", expanded=False):
+            st.dataframe(table_df)
+            st.download_button(
+                "📥 Download Raw CSV", table_df.to_csv(index=False).encode('utf-8'),
+                f'raw_table_{i+1}.csv', 'text/csv', key=f'raw_csv_{i}'
+            )
+
+    # --- DYNAMIC DATA CLEANING UI (REGULAR EXPRESSION EXTRACTOR) ---
+    st.markdown("---")
+    st.header("Interactive Data Cleaning: The RegEx Extractor")
+    st.write("Select a raw table and a column, then provide a RegEx pattern to extract data into new, clean columns.")
+    
+    table_index = st.selectbox(
+        "Select a raw table to clean:", 
+        options=range(len(st.session_state.extracted_tables)),
+        format_func=lambda i: f"Raw Table {i+1}",
+        key='table_selector'
+    )
+    
+    # Use a copy of the selected table for cleaning operations
+    selected_df = st.session_state.extracted_tables[table_index].copy()
+    
+    column_to_parse = st.selectbox(
+        "1. Select the column with the messy data:",
+        options=selected_df.columns,
+        key='column_selector'
+    )
+    
+    st.markdown("""
+    **2. Define Your Extraction Patterns (using Regular Expressions)**
+    
+    A RegEx pattern finds and extracts data from text. Each part you want to extract into a new column should be a **named capture group** like `(?P<Name>...)`.
+    
+    * **Need help building a RegEx?** Check out [**Regex101.com**](https://regex101.com/) - it's an excellent interactive tool.
+    """)
+
+    goodreads_example = r"^(?P<Title>.*?)\s+\(.*by\s+(?P<Author>.*?)\s+(?P<Avg_Rating>\d+\.\d+)\s+avg rating.*score:\s+(?P<Score>[\d,]+)"
+    
+    regex_pattern = st.text_area(
+        "Enter your RegEx pattern here:",
+        value=goodreads_example,
+        height=150,
+        key='regex_input'
+    )
+    
+    if st.button("Apply Extraction", key='apply_button'):
+        if not regex_pattern:
+            st.warning("Please enter a RegEx pattern.")
+        else:
+            try:
+                # Use str.extract to apply the regex pattern
+                extracted_data = selected_df[column_to_parse].astype(str).str.extract(regex_pattern)
+                
+                if extracted_data.dropna(how='all').empty:
+                    st.error("Extraction failed. Your RegEx pattern did not match any data in the selected column. Please check your pattern on Regex101.")
+                    st.session_state.cleaned_table = None
+                else:
+                    st.success("Extraction successful! See the cleaned table result below.")
+                    remaining_df = selected_df.drop(columns=[column_to_parse])
+                    cleaned_df = pd.concat([remaining_df, extracted_data], axis=1)
+                    # Store the newly cleaned table in session state
+                    st.session_state.cleaned_table = cleaned_df
+            
+            except re.error as e:
+                st.error(f"Invalid Regular Expression: {e}. Please check your pattern syntax.")
+            except Exception as e:
+                st.error(f"An unexpected error occurred: {e}")
+
+# --- DISPLAY CLEANED TABLE RESULT ---
+if st.session_state.cleaned_table is not None:
+    st.markdown("---")
+    with st.expander("✨ Cleaned Table Result", expanded=True):
+        st.dataframe(st.session_state.cleaned_table)
+        st.download_button(
+            "✅ Download Cleaned CSV", st.session_state.cleaned_table.to_csv(index=False).encode('utf-8'),
+            f'cleaned_table.csv', 'text/csv', key='cleaned_csv'
+        )
