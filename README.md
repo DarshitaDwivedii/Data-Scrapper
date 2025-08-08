@@ -16,12 +16,12 @@
   A user-friendly web application built with Streamlit that allows you to extract tabular data from any webpage. This tool is designed to be "smart"—it automatically handles complex websites and now includes interactive tools to clean and restructure your data using the power of Regular Expressions.
 </p>
 
-<p align="center">
+<!-- <p align="center">
   <img src="./assets/app_screenshot.gif" alt="Application Demo GIF" width="80%">
 </p>
 <p align="center">
   <em>(Suggestion: Create an 'assets' folder in your project and replace the path above with a real screenshot or GIF of your running application)</em>
-</p>
+</p> -->
 
 ---
 
@@ -128,17 +128,3 @@ Follow these steps to run the project on your local machine.
 4.  **Click "Apply Extraction."**
 5.  **View and Download:** A new "Cleaned Table Result" will appear. You can view it and download it as a clean CSV file.
 
-## 📜 License
-
-This project is licensed under the MIT License. See the `LICENSE` file for details.
-
----
-
-<p align="center">
-  Made with ❤️ by [Your Name]
-</p>
-<p align="center">
-  <a href="https://github.com/[YOUR-GITHUB-USERNAME]">GitHub</a> • 
-  <a href="https://www.linkedin.com/in/[YOUR-LINKEDIN-USERNAME]">LinkedIn</a> • 
-  <a href="https://twitter.com/[YOUR-TWITTER-USERNAME]">Twitter</a>
-</p>
